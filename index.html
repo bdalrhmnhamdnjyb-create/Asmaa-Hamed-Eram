@@ -27,6 +27,9 @@
   /* NOTE: no letter-spacing is used anywhere on Arabic text — letter-spacing forces
      html2canvas to draw text char-by-char, which disconnects Arabic ligatures. */
   *{box-sizing:border-box;}
+  html{
+    zoom: 90%; /* shrinks the whole page to 90% on load in Chrome/Edge/Safari/modern Firefox */
+  }
   body{
     margin:0;
     background:var(--page);
@@ -37,9 +40,6 @@
     color:var(--ink);
     padding: 28px 16px 60px;
   }
-html{
-  zoom: 90%;
-}
   .wrap{ max-width: 1240px; margin: 0 auto; }
   .print-only{ display:none; }
 
@@ -246,6 +246,17 @@ html{
     margin-right:6px;
     font-size: 10px;
     background: var(--gold);
+    color:#fff;
+    padding: 1px 6px;
+    border-radius: 6px;
+    font-family:'IBM Plex Mono', monospace;
+    vertical-align: middle;
+  }
+  .custom-tag{
+    display:inline-block;
+    margin-right:6px;
+    font-size: 10px;
+    background: var(--blue-stamp);
     color:#fff;
     padding: 1px 6px;
     border-radius: 6px;
@@ -519,18 +530,20 @@ html{
 const STANDARD_BREAK = 45;
 const STORAGE_PREFIX = "attendance_record_";
 
+// requiredOffset = minutes subtracted from the standard day requirement (480 weekday / 420 Saturday)
+// for employees whose required hours are lower than the standard 8 hours.
 const EMPLOYEES = [
-  { name: "أمنية حلمي", hasBreak: true },
-  { name: "أمنه محمد", hasBreak: false },
-  { name: "إسراء هادي", hasBreak: true },
-  { name: "أسماء حامد", hasBreak: false },
-  { name: "عمر صلاح", hasBreak: false },
-  { name: "محمد أسامة", hasBreak: false },
-  { name: "منى محمد", hasBreak: false },
-  { name: "يوسف حسن", hasBreak: false },
-  { name: "أحمد سامي", hasBreak: false },
-  { name: "تقي محمد", hasBreak: true },
-  { name: "حسين علي", hasBreak: false },
+  { name: "أمنية حلمي", hasBreak: true, requiredOffset: 0 },
+  { name: "أمنه محمد", hasBreak: false, requiredOffset: 0 },
+  { name: "إسراء هادي", hasBreak: true, requiredOffset: 0 },
+  { name: "أسماء حامد", hasBreak: false, requiredOffset: 0 },
+  { name: "عمر صلاح", hasBreak: false, requiredOffset: 0 },
+  { name: "محمد أسامة", hasBreak: false, requiredOffset: 30 },   // required 7.5h instead of 8h
+  { name: "منى محمد", hasBreak: false, requiredOffset: 0 },
+  { name: "يوسف حسن", hasBreak: false, requiredOffset: 0 },
+  { name: "أحمد سامي", hasBreak: false, requiredOffset: 90 },   // required 6.5h instead of 8h
+  { name: "تقي محمد", hasBreak: true, requiredOffset: 0 },
+  { name: "حسين علي", hasBreak: false, requiredOffset: 0 },
 ];
 
 const DAYS = [
@@ -582,6 +595,21 @@ function updateReqNote(){
   note.textContent = d.required === null
     ? "يوم إجازة رسمية — لا يوجد عدد ساعات مطلوب"
     : `المطلوب: ${fmtMinutes(d.required)} حضور (${fmtMinutes(d.required - STANDARD_BREAK)} عمل فعلي لأصحاب البريك)`;
+  updateCustomTags();
+}
+
+function updateCustomTags(){
+  const requiredGross = DAYS[currentDayIdx].required;
+  EMPLOYEES.forEach((emp, idx) => {
+    if (!emp.requiredOffset) return;
+    const tag = document.querySelector(`.custom-tag[data-custom-idx="${idx}"]`);
+    if (!tag) return;
+    if (requiredGross === null){
+      tag.textContent = "إجازة";
+    } else {
+      tag.textContent = fmtMinutes(requiredGross - emp.requiredOffset) + " مطلوب";
+    }
+  });
 }
 
 function updatePrintHeader(){
@@ -618,7 +646,7 @@ function buildRows(){
     tr.dataset.idx = idx;
     tr.innerHTML = `
       <td class="row-num">${idx+1}</td>
-      <td class="emp-name">${emp.name}${emp.hasBreak ? '<span class="break-tag">بريك</span>' : ''}</td>
+      <td class="emp-name">${emp.name}${emp.hasBreak ? '<span class="break-tag">بريك</span>' : ''}${emp.requiredOffset ? `<span class="custom-tag" data-custom-idx="${idx}"></span>` : ''}</td>
       <td><input type="time" class="in-checkin"></td>
       <td><input type="time" class="in-checkout"></td>
       <td>${emp.hasBreak ? '<input type="number" class="in-break" value="45" min="0" max="180">' : '<input type="number" class="in-break" value="0" disabled>'}</td>
@@ -678,17 +706,19 @@ function recalcRow(tr, emp){
     return;
   }
 
-  // target worked time: full requirement, minus the standard 45-min break
-  // ONLY for break-eligible staff (permission does not reduce the target).
-  const target = requiredGross - (emp.hasBreak ? STANDARD_BREAK : 0);
+  // target worked time: full requirement, minus any personal offset (e.g. an
+  // employee whose required day is 7.5h instead of 8h), minus the standard
+  // 45-min break ONLY for break-eligible staff (permission does not reduce the target).
+  const target = (requiredGross - (emp.requiredOffset || 0)) - (emp.hasBreak ? STANDARD_BREAK : 0);
   const diff = net - target;
+  const diffMinutes = Math.abs(diff);
 
   if (diff === 0){
     statusCell.innerHTML = '<span class="stamp ok">✓ مطابق للمطلوب</span>';
   } else if (diff < 0){
-    statusCell.innerHTML = `<span class="stamp deficit">ناقص ${fmtMinutes(diff)}</span>`;
+    statusCell.innerHTML = `<span class="stamp deficit">ناقص ${diffMinutes} دقيقة</span>`;
   } else {
-    statusCell.innerHTML = `<span class="stamp over">زيادة ${fmtMinutes(diff)}</span>`;
+    statusCell.innerHTML = `<span class="stamp over">زيادة ${diffMinutes} دقيقة</span>`;
   }
 }
 
@@ -875,6 +905,7 @@ document.getElementById('save-btn').addEventListener('click', () => {
 /* ---------- Build page ---------- */
 buildDayBar();
 buildRows();
+updateCustomTags();
 
 // initialize date picker to today, sync weekday, and auto-load if data exists
 (function init(){
