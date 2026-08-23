@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>دفتر حضور الموظفين</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800&family=Tajawal:wght@400;500;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  :root{
+    --ink:#16332a;
+    --ledger-green-dark:#1b4332;
+    --ledger-green:#2d6a4f;
+    --ledger-line:#bcd4c4;
+    --parchment:#f5f1e2;
+    --page:#efe9d6;
+    --card:#fffdf6;
+    --gold:#a97c26;
+    --gold-soft:#e8d8ad;
+    --red-stamp:#8c3a2b;
+    --blue-stamp:#1f5f7a;
+    --purple-stamp:#5b3a8c;
+    --ok-stamp:#2d6a4f;
+    --shadow: 0 10px 30px rgba(22,51,42,0.12);
+  }
+  /* NOTE: no letter-spacing is used anywhere on Arabic text — letter-spacing forces
+     html2canvas to draw text char-by-char, which disconnects Arabic ligatures. */
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--page);
+    background-image:
+      radial-gradient(circle at 15% 10%, rgba(45,106,79,0.06), transparent 40%),
+      radial-gradient(circle at 85% 90%, rgba(169,124,38,0.08), transparent 40%);
+    font-family:'Tajawal', sans-serif;
+    color:var(--ink);
+    padding: 28px 16px 60px;
+  }
+  .wrap{ max-width: 1240px; margin: 0 auto; }
+  .print-only{ display:none; }
+
+  header{
+    background: linear-gradient(135deg, var(--ledger-green-dark), var(--ledger-green));
+    color: var(--parchment);
+    border-radius: 18px;
+    padding: 28px 32px;
+    box-shadow: var(--shadow);
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 22px;
+  }
+  header::before{
+    content:"";
+    position:absolute; inset:0;
+    background-image: repeating-linear-gradient(to bottom, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 1px, transparent 1px, transparent 34px);
+    pointer-events:none;
+  }
+  header h1{
+    font-family:'Cairo', sans-serif;
+    font-weight:800;
+    font-size: 28px;
+    margin: 0 0 6px;
+  }
+  header p{
+    margin:0;
+    color: var(--gold-soft);
+    font-size: 14px;
+    font-weight: 500;
+  }
+  .ledger-tab{
+    position:absolute;
+    left: 28px; top: 0;
+    background: var(--gold);
+    color: var(--ledger-green-dark);
+    font-family:'IBM Plex Mono', monospace;
+    font-weight:600;
+    font-size: 12px;
+    padding: 6px 14px;
+    border-radius: 0 0 8px 8px;
+  }
+
+  .day-bar{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    background: var(--card);
+    border: 1px solid var(--ledger-line);
+    border-radius: 14px;
+    padding: 14px;
+    margin-bottom: 12px;
+    box-shadow: var(--shadow);
+    align-items:center;
+  }
+  .day-bar .label{
+    font-family:'Cairo', sans-serif;
+    font-weight:700;
+    font-size: 14px;
+    color: var(--ledger-green-dark);
+    padding-left: 8px;
+    border-left: 2px solid var(--ledger-line);
+    margin-left: 4px;
+  }
+  .day-btn{
+    font-family:'Tajawal', sans-serif;
+    font-weight:700;
+    font-size: 13.5px;
+    padding: 8px 16px;
+    border-radius: 999px;
+    border: 1.5px solid var(--ledger-line);
+    background: transparent;
+    color: var(--ledger-green-dark);
+    cursor:pointer;
+    transition: all .15s ease;
+  }
+  .day-btn:hover{ border-color: var(--ledger-green); }
+  .day-btn.active{
+    background: var(--ledger-green-dark);
+    border-color: var(--ledger-green-dark);
+    color: var(--parchment);
+  }
+  #date-picker{
+    font-family:'IBM Plex Mono', monospace;
+    font-weight:600;
+    font-size: 13px;
+    color: var(--ledger-green-dark);
+    border: 1.5px solid var(--ledger-line);
+    border-radius: 8px;
+    padding: 7px 10px;
+    background:#fff;
+  }
+  .req-note{
+    margin-right:auto;
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+    background: var(--gold-soft);
+    color: #5c3d0e;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-weight:600;
+    white-space:nowrap;
+  }
+
+  .storage-bar{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    background: var(--card);
+    border: 1px solid var(--ledger-line);
+    border-radius: 14px;
+    padding: 12px 14px;
+    margin-bottom: 22px;
+    box-shadow: var(--shadow);
+    flex-wrap:wrap;
+  }
+  #save-btn{
+    font-family:'Cairo', sans-serif;
+    font-weight:700;
+    font-size: 13.5px;
+    background: var(--ledger-green-dark);
+    color: var(--parchment);
+    border:none;
+    padding: 9px 18px;
+    border-radius: 9px;
+    cursor:pointer;
+  }
+  #save-btn:hover{ background: var(--ledger-green); }
+  .storage-status{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+    color: #7a7460;
+  }
+  .storage-status.has-data{ color: var(--blue-stamp); font-weight:600; }
+  .storage-status.just-saved{ color: var(--ok-stamp); font-weight:600; }
+
+  #capture-area{
+    background: var(--card);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+    padding: 6px;
+    overflow-x:auto;
+  }
+
+  #print-header{
+    padding: 4px 10px 14px;
+    border-bottom: 2px solid var(--ledger-line);
+    margin-bottom: 6px;
+  }
+  #print-header h2{
+    font-family:'Cairo', sans-serif;
+    margin:0 0 4px;
+    color: var(--ledger-green-dark);
+    font-size:18px;
+  }
+  #print-header div{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12.5px;
+    color:#5c3d0e;
+  }
+
+  table{
+    width:100%;
+    border-collapse: collapse;
+    min-width: 1040px;
+  }
+  thead th{
+    font-family:'Cairo', sans-serif;
+    font-size: 12.5px;
+    font-weight:700;
+    color: var(--parchment);
+    background: var(--ledger-green-dark);
+    padding: 12px 8px;
+    text-align:center;
+    position: sticky; top:0;
+  }
+  thead th:first-child{ border-radius: 10px 0 0 0; }
+  thead th:last-child{ border-radius: 0 10px 0 0; }
+
+  tbody tr{ border-bottom: 1px solid var(--ledger-line); }
+  tbody tr:nth-child(even){ background: rgba(45,106,79,0.045); }
+  tbody td{
+    padding: 10px 6px;
+    text-align:center;
+    font-size: 13px;
+    vertical-align: middle;
+  }
+  .row-num{
+    font-family:'IBM Plex Mono', monospace;
+    color: var(--gold);
+    font-weight:600;
+    width: 30px;
+  }
+  .emp-name{
+    font-family:'Cairo', sans-serif;
+    font-weight:700;
+    color: var(--ledger-green-dark);
+    text-align: right !important;
+    padding-right: 14px !important;
+    white-space:nowrap;
+  }
+  .break-tag{
+    display:inline-block;
+    margin-right:6px;
+    font-size: 10px;
+    background: var(--gold);
+    color:#fff;
+    padding: 1px 6px;
+    border-radius: 6px;
+    font-family:'IBM Plex Mono', monospace;
+    vertical-align: middle;
+  }
+
+  input[type="time"], input[type="number"]{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+    font-weight:600;
+    color: var(--ledger-green-dark);
+    border: 1.5px solid var(--ledger-line);
+    border-radius: 8px;
+    padding: 6px 6px;
+    background: #fff;
+    width: 100px;
+    text-align:center;
+  }
+  input[type="number"]{ width: 60px; }
+  input:focus{ outline: 2px solid var(--ledger-green); outline-offset:1px; }
+  input:disabled{
+    background: repeating-linear-gradient(45deg, #f1efe4, #f1efe4 4px, #e7e3d3 4px, #e7e3d3 8px);
+    color: #9a9484;
+    border-color: #ddd8c4;
+    cursor:not-allowed;
+  }
+
+  .span-cell{
+    font-family:'IBM Plex Mono', monospace;
+    font-weight:700;
+    font-size: 13.5px;
+  }
+  .net-cell{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--blue-stamp);
+  }
+
+  .permission-btn{
+    font-family:'Tajawal', sans-serif;
+    font-size: 11.5px;
+    font-weight:700;
+    background: transparent;
+    border: 1.5px dashed var(--gold);
+    color: var(--gold);
+    border-radius: 8px;
+    padding: 5px 8px;
+    cursor:pointer;
+  }
+  .permission-btn:hover{ background: var(--gold-soft); }
+  .permission-summary{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--purple-stamp);
+    display:block;
+    margin-top:4px;
+  }
+
+  .stamp{
+    display:inline-block;
+    font-family:'Cairo', sans-serif;
+    font-weight:800;
+    font-size: 11.5px;
+    padding: 5px 10px;
+    border-radius: 6px;
+    border: 2px solid currentColor;
+    transform: rotate(-3deg);
+    white-space:nowrap;
+  }
+  .stamp.ok{ color: var(--ok-stamp); background: rgba(45,106,79,0.08); }
+  .stamp.deficit{ color: var(--red-stamp); background: rgba(140,58,43,0.08); }
+  .stamp.over{ color: var(--blue-stamp); background: rgba(31,95,122,0.08); }
+  .stamp.empty{ color:#9a9484; background: rgba(154,148,132,0.08); transform:none; }
+
+  .actions{
+    display:flex; justify-content:flex-end; gap:10px; margin-top:18px;
+  }
+  #download-btn, #print-btn{
+    font-family:'Cairo', sans-serif;
+    font-weight:700;
+    font-size: 14px;
+    border:none;
+    padding: 11px 22px;
+    border-radius: 10px;
+    cursor:pointer;
+    box-shadow: var(--shadow);
+    transition: transform .12s ease;
+  }
+  #download-btn{ background: var(--gold); color: #fff; }
+  #print-btn{ background: var(--ledger-green-dark); color: var(--parchment); }
+  #download-btn:hover, #print-btn:hover{ transform: translateY(-1px); }
+  #download-btn:active, #print-btn:active{ transform: translateY(0); }
+  #download-btn:disabled{ opacity:0.6; cursor:wait; transform:none; }
+
+  footer{
+    text-align:center;
+    font-size: 12px;
+    color: #7a7460;
+    margin-top: 18px;
+    font-family:'IBM Plex Mono', monospace;
+  }
+
+  /* Modal */
+  .modal-overlay{
+    position:fixed; inset:0;
+    background: rgba(22,51,42,0.45);
+    display:none;
+    align-items:center; justify-content:center;
+    z-index: 100;
+    padding: 20px;
+  }
+  .modal-overlay.open{ display:flex; }
+  .modal-box{
+    background: var(--card);
+    border-radius: 16px;
+    padding: 24px;
+    width: 100%;
+    max-width: 360px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--ledger-line);
+  }
+  .modal-box h3{
+    font-family:'Cairo', sans-serif;
+    color: var(--ledger-green-dark);
+    margin: 0 0 4px;
+    font-size: 17px;
+  }
+  .modal-box .modal-sub{
+    font-size:12.5px; color:#7a7460; margin-bottom:16px;
+  }
+  .modal-field{ margin-bottom:14px; }
+  .modal-field label{
+    display:block; font-size:12.5px; font-weight:700;
+    color: var(--ledger-green-dark); margin-bottom:5px;
+  }
+  .modal-field input{ width:100%; }
+  .modal-result{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12.5px;
+    background: var(--gold-soft);
+    color:#5c3d0e;
+    padding:8px 10px;
+    border-radius:8px;
+    margin-bottom:16px;
+    min-height: 18px;
+  }
+  .modal-actions{ display:flex; gap:8px; }
+  .modal-actions button{
+    flex:1;
+    font-family:'Cairo', sans-serif;
+    font-weight:700;
+    font-size:13px;
+    padding:9px 10px;
+    border-radius:9px;
+    border:none;
+    cursor:pointer;
+  }
+  .modal-save{ background: var(--ledger-green-dark); color:var(--parchment); }
+  .modal-clear{ background: transparent; border:1.5px solid var(--red-stamp) !important; color:var(--red-stamp); }
+  .modal-cancel{ background: transparent; border:1.5px solid var(--ledger-line) !important; color:var(--ink); }
+
+  @media (max-width: 700px){
+    header{padding:22px 18px;}
+    header h1{font-size:22px;}
+  }
+
+  @media print{
+    body{ background:#fff; padding:0; }
+    header, .day-bar, .storage-bar, .actions, footer{ display:none !important; }
+    #print-header{ display:block !important; }
+    #capture-area{ box-shadow:none; border-radius:0; padding:0; }
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    thead th{ -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .permission-btn{ display:none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="ledger-tab">سجل رقم ٠١</div>
+    <h1>دفتر حضور الموظفين</h1>
+    <p>تسجيل الحضور والانصراف وحساب ساعات العمل يومًا بيوم</p>
+  </header>
+
+  <div class="day-bar" id="day-bar">
+    <span class="label">اليوم:</span>
+    <!-- day buttons injected by JS -->
+    <input type="date" id="date-picker">
+    <span class="req-note" id="req-note"></span>
+  </div>
+
+  <div class="storage-bar">
+    <button id="save-btn">💾 حفظ بيانات هذا اليوم</button>
+    <span class="storage-status" id="storage-status"></span>
+  </div>
+
+  <div id="capture-area">
+    <div id="print-header" class="print-only">
+      <h2>سجل الحضور — <span id="print-day"></span></h2>
+      <div>التاريخ: <span id="print-date"></span></div>
+    </div>
+    <table id="attendance-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>الموظف</th>
+          <th>وقت الحضور</th>
+          <th>وقت الانصراف</th>
+          <th>مدة البريك (د)</th>
+          <th>الإذن</th>
+          <th>إجمالي ساعات الحضور</th>
+          <th>صافي وقت العمل</th>
+          <th>الحالة</th>
+        </tr>
+      </thead>
+      <tbody id="table-body">
+        <!-- rows injected by JS -->
+      </tbody>
+    </table>
+  </div>
+
+  <div class="actions">
+    <button id="print-btn">🖨 طباعة</button>
+    <button id="download-btn">⬇ تحميل الجدول كصورة</button>
+  </div>
+
+  <footer>الدوام: الأحد–الخميس ٨ ساعات · السبت ٧ ساعات · البريك (لمن له) ٤٥ دقيقة ضمن ساعات الدوام</footer>
+</div>
+
+<!-- Permission Modal -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal-box">
+    <h3 id="modal-title">تسجيل إذن</h3>
+    <div class="modal-sub">حدد وقت المشي ووقت الرجوع، وهيتحسب المدة ويتخصم من ساعات العمل</div>
+    <div class="modal-field">
+      <label>مشي الساعة</label>
+      <input type="time" id="modal-leave">
+    </div>
+    <div class="modal-field">
+      <label>رجع الساعة</label>
+      <input type="time" id="modal-return">
+    </div>
+    <div class="modal-result" id="modal-result">مدة الإذن: —</div>
+    <div class="modal-actions">
+      <button class="modal-cancel" id="modal-cancel">إلغاء</button>
+      <button class="modal-clear" id="modal-clear">مسح</button>
+      <button class="modal-save" id="modal-save">حفظ</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =========================================================================
+   CALCULATION RULE (confirmed):
+   - "net" = actual worked time = span(checkout-checkin) minus the break the
+     person actually took minus any permission (إذن) taken.
+   - "target" = the required actual worked time for the day:
+        weekday required (480 / 420 min) minus the STANDARD 45-min break,
+        but ONLY for the 3 break-eligible employees. Non-break employees
+        are compared to the full 480/420.
+   - diff = net - target
+        diff == 0  -> on target
+        diff  < 0  -> short (ناقص) by |diff|
+        diff  > 0  -> extra (زيادة) by diff
+     (so taking less than the standard 45-min break raises "net" while
+     "target" stays fixed at the standard-break assumption -> shows as extra)
+   ========================================================================= */
+const STANDARD_BREAK = 45;
+const STORAGE_PREFIX = "attendance_record_";
+
+const EMPLOYEES = [
+  { name: "أمنية حلمي", hasBreak: true },
+  { name: "أمنه محمد", hasBreak: false },
+  { name: "إسراء هادي", hasBreak: true },
+  { name: "أسماء حامد", hasBreak: false },
+  { name: "عمر صلاح", hasBreak: false },
+  { name: "محمد أسامة", hasBreak: false },
+  { name: "منى محمد", hasBreak: false },
+  { name: "يوسف حسن", hasBreak: false },
+  { name: "أحمد سامي", hasBreak: false },
+  { name: "تقي محمد", hasBreak: true },
+  { name: "حسين علي", hasBreak: false },
+];
+
+const DAYS = [
+  { key:"sun", label:"الأحد", required: 480, jsDay: 0 },
+  { key:"mon", label:"الاثنين", required: 480, jsDay: 1 },
+  { key:"tue", label:"الثلاثاء", required: 480, jsDay: 2 },
+  { key:"wed", label:"الأربعاء", required: 480, jsDay: 3 },
+  { key:"thu", label:"الخميس", required: 480, jsDay: 4 },
+  { key:"fri", label:"الجمعة", required: null, jsDay: 5 },
+  { key:"sat", label:"السبت", required: 420, jsDay: 6 },
+];
+
+let currentDayIdx = 0;
+let permissions = {}; // idx -> { leave, ret, minutes }
+let activeModalIdx = null;
+
+function dayIdxFromJsDay(jsDay){
+  return DAYS.findIndex(d => d.jsDay === jsDay);
+}
+
+function buildDayBar(){
+  const bar = document.getElementById('day-bar');
+  const datePicker = document.getElementById('date-picker');
+  DAYS.forEach((d, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'day-btn' + (i === currentDayIdx ? ' active' : '');
+    btn.textContent = d.label;
+    btn.dataset.idx = i;
+    btn.addEventListener('click', () => {
+      setActiveDay(i);
+      updatePrintHeader();
+      recalcAll();
+    });
+    bar.insertBefore(btn, datePicker);
+  });
+  updateReqNote();
+  updatePrintHeader();
+}
+
+function setActiveDay(i){
+  currentDayIdx = i;
+  document.querySelectorAll('.day-btn').forEach(b => b.classList.toggle('active', parseInt(b.dataset.idx,10) === i));
+  updateReqNote();
+}
+
+function updateReqNote(){
+  const d = DAYS[currentDayIdx];
+  const note = document.getElementById('req-note');
+  note.textContent = d.required === null
+    ? "يوم إجازة رسمية — لا يوجد عدد ساعات مطلوب"
+    : `المطلوب: ${fmtMinutes(d.required)} حضور (${fmtMinutes(d.required - STANDARD_BREAK)} عمل فعلي لأصحاب البريك)`;
+}
+
+function updatePrintHeader(){
+  document.getElementById('print-day').textContent = DAYS[currentDayIdx].label;
+  const dateVal = document.getElementById('date-picker').value;
+  let dateLabel = "—";
+  if (dateVal){
+    const d = new Date(dateVal + "T00:00:00");
+    dateLabel = d.toLocaleDateString('ar-EG', { year:'numeric', month:'long', day:'numeric' });
+  }
+  document.getElementById('print-date').textContent = dateLabel;
+}
+
+function fmtMinutes(mins){
+  const sign = mins < 0 ? "-" : "";
+  mins = Math.abs(mins);
+  const h = Math.floor(mins/60);
+  const m = mins % 60;
+  if (h === 0) return `${sign}${m}د`;
+  if (m === 0) return `${sign}${h}س`;
+  return `${sign}${h}س ${m}د`;
+}
+
+function timeToMinutes(t){
+  if (!t) return null;
+  const [h,m] = t.split(':').map(Number);
+  return h*60 + m;
+}
+
+function buildRows(){
+  const body = document.getElementById('table-body');
+  EMPLOYEES.forEach((emp, idx) => {
+    const tr = document.createElement('tr');
+    tr.dataset.idx = idx;
+    tr.innerHTML = `
+      <td class="row-num">${idx+1}</td>
+      <td class="emp-name">${emp.name}${emp.hasBreak ? '<span class="break-tag">بريك</span>' : ''}</td>
+      <td><input type="time" class="in-checkin"></td>
+      <td><input type="time" class="in-checkout"></td>
+      <td>${emp.hasBreak ? '<input type="number" class="in-break" value="45" min="0" max="180">' : '<input type="number" class="in-break" value="0" disabled>'}</td>
+      <td>
+        <button class="permission-btn" data-idx="${idx}">تسجيل إذن</button>
+        <span class="permission-summary" data-idx="${idx}"></span>
+      </td>
+      <td class="span-cell in-span">—</td>
+      <td class="net-cell in-net">—</td>
+      <td class="in-status"><span class="stamp empty">لم يُسجَّل</span></td>
+    `;
+    body.appendChild(tr);
+    tr.querySelectorAll('input.in-checkin, input.in-checkout, input.in-break').forEach(inp => {
+      inp.addEventListener('input', () => recalcRow(tr, emp));
+    });
+    tr.querySelector('.permission-btn').addEventListener('click', () => openModal(idx));
+  });
+}
+
+function recalcRow(tr, emp){
+  const idx = parseInt(tr.dataset.idx, 10);
+  const checkin = tr.querySelector('.in-checkin').value;
+  const checkout = tr.querySelector('.in-checkout').value;
+  const spanCell = tr.querySelector('.in-span');
+  const netCell = tr.querySelector('.in-net');
+  const statusCell = tr.querySelector('.in-status');
+
+  if (!checkin || !checkout){
+    spanCell.textContent = '—';
+    netCell.textContent = '—';
+    statusCell.innerHTML = '<span class="stamp empty">لم يُسجَّل</span>';
+    return;
+  }
+
+  let cin = timeToMinutes(checkin);
+  let cout = timeToMinutes(checkout);
+  let span = cout - cin;
+  if (span < 0) span += 1440; // overnight safety
+
+  spanCell.textContent = fmtMinutes(span);
+
+  const permissionMin = (permissions[idx] && permissions[idx].minutes) || 0;
+  const breakMin = emp.hasBreak ? (parseInt(tr.querySelector('.in-break').value, 10) || 0) : 0;
+
+  // actual worked time = attendance span minus break actually taken minus permission taken
+  const net = span - breakMin - permissionMin;
+
+  if (emp.hasBreak || permissionMin > 0){
+    netCell.textContent = fmtMinutes(net) + ' فعلي';
+  } else {
+    netCell.textContent = '—';
+  }
+
+  const requiredGross = DAYS[currentDayIdx].required;
+  if (requiredGross === null){
+    statusCell.innerHTML = '<span class="stamp ok">حضور بيوم إجازة</span>';
+    return;
+  }
+
+  // target worked time: full requirement, minus the standard 45-min break
+  // ONLY for break-eligible staff (permission does not reduce the target).
+  const target = requiredGross - (emp.hasBreak ? STANDARD_BREAK : 0);
+  const diff = net - target;
+
+  if (diff === 0){
+    statusCell.innerHTML = '<span class="stamp ok">✓ مطابق للمطلوب</span>';
+  } else if (diff < 0){
+    statusCell.innerHTML = `<span class="stamp deficit">ناقص ${fmtMinutes(diff)}</span>`;
+  } else {
+    statusCell.innerHTML = `<span class="stamp over">زيادة ${fmtMinutes(diff)}</span>`;
+  }
+}
+
+function recalcAll(){
+  document.querySelectorAll('#table-body tr').forEach(tr => {
+    const idx = parseInt(tr.dataset.idx, 10);
+    recalcRow(tr, EMPLOYEES[idx]);
+  });
+}
+
+/* ---------- Permission modal ---------- */
+function openModal(idx){
+  activeModalIdx = idx;
+  const existing = permissions[idx];
+  document.getElementById('modal-title').textContent = `تسجيل إذن — ${EMPLOYEES[idx].name}`;
+  document.getElementById('modal-leave').value = existing ? existing.leave : '';
+  document.getElementById('modal-return').value = existing ? existing.ret : '';
+  updateModalResult();
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function closeModal(){
+  document.getElementById('modal-overlay').classList.remove('open');
+  activeModalIdx = null;
+}
+
+function updateModalResult(){
+  const leave = document.getElementById('modal-leave').value;
+  const ret = document.getElementById('modal-return').value;
+  const resultEl = document.getElementById('modal-result');
+  if (!leave || !ret){
+    resultEl.textContent = 'مدة الإذن: —';
+    return;
+  }
+  let l = timeToMinutes(leave);
+  let r = timeToMinutes(ret);
+  let mins = r - l;
+  if (mins < 0) mins += 1440;
+  resultEl.textContent = `مدة الإذن: ${fmtMinutes(mins)} (من ${leave} إلى ${ret})`;
+}
+
+document.getElementById('modal-leave').addEventListener('input', updateModalResult);
+document.getElementById('modal-return').addEventListener('input', updateModalResult);
+document.getElementById('modal-cancel').addEventListener('click', closeModal);
+document.getElementById('modal-overlay').addEventListener('click', (e) => {
+  if (e.target.id === 'modal-overlay') closeModal();
+});
+
+document.getElementById('modal-clear').addEventListener('click', () => {
+  if (activeModalIdx === null) return;
+  delete permissions[activeModalIdx];
+  refreshPermissionSummary(activeModalIdx);
+  const tr = document.querySelector(`tr[data-idx="${activeModalIdx}"]`);
+  recalcRow(tr, EMPLOYEES[activeModalIdx]);
+  closeModal();
+});
+
+document.getElementById('modal-save').addEventListener('click', () => {
+  if (activeModalIdx === null) return;
+  const leave = document.getElementById('modal-leave').value;
+  const ret = document.getElementById('modal-return').value;
+  if (!leave || !ret){
+    delete permissions[activeModalIdx];
+  } else {
+    let l = timeToMinutes(leave);
+    let r = timeToMinutes(ret);
+    let mins = r - l;
+    if (mins < 0) mins += 1440;
+    permissions[activeModalIdx] = { leave, ret, minutes: mins };
+  }
+  refreshPermissionSummary(activeModalIdx);
+  const tr = document.querySelector(`tr[data-idx="${activeModalIdx}"]`);
+  recalcRow(tr, EMPLOYEES[activeModalIdx]);
+  closeModal();
+});
+
+function refreshPermissionSummary(idx){
+  const span = document.querySelector(`.permission-summary[data-idx="${idx}"]`);
+  const p = permissions[idx];
+  span.textContent = p ? `${fmtMinutes(p.minutes)} (${p.leave}–${p.ret})` : '';
+}
+
+/* ---------- Local storage (per date) ---------- */
+function storageKey(dateVal){
+  return STORAGE_PREFIX + (dateVal || 'no-date');
+}
+
+function collectFormData(){
+  const rows = EMPLOYEES.map((emp, idx) => {
+    const tr = document.querySelector(`tr[data-idx="${idx}"]`);
+    return {
+      checkin: tr.querySelector('.in-checkin').value,
+      checkout: tr.querySelector('.in-checkout').value,
+      breakMin: tr.querySelector('.in-break').value
+    };
+  });
+  return {
+    dayIdx: currentDayIdx,
+    rows: rows,
+    permissions: permissions
+  };
+}
+
+function applyFormData(data){
+  currentDayIdx = data.dayIdx !== undefined ? data.dayIdx : currentDayIdx;
+  setActiveDay(currentDayIdx);
+  permissions = data.permissions || {};
+  data.rows.forEach((rowData, idx) => {
+    const tr = document.querySelector(`tr[data-idx="${idx}"]`);
+    tr.querySelector('.in-checkin').value = rowData.checkin || '';
+    tr.querySelector('.in-checkout').value = rowData.checkout || '';
+    if (!tr.querySelector('.in-break').disabled){
+      tr.querySelector('.in-break').value = rowData.breakMin || 45;
+    }
+    refreshPermissionSummary(idx);
+  });
+  updatePrintHeader();
+  recalcAll();
+}
+
+function clearFormFields(){
+  permissions = {};
+  EMPLOYEES.forEach((emp, idx) => {
+    const tr = document.querySelector(`tr[data-idx="${idx}"]`);
+    tr.querySelector('.in-checkin').value = '';
+    tr.querySelector('.in-checkout').value = '';
+    if (!tr.querySelector('.in-break').disabled){
+      tr.querySelector('.in-break').value = 45;
+    }
+    refreshPermissionSummary(idx);
+  });
+  recalcAll();
+}
+
+function refreshStorageStatus(){
+  const dateVal = document.getElementById('date-picker').value;
+  const statusEl = document.getElementById('storage-status');
+  const saved = localStorage.getItem(storageKey(dateVal));
+  if (saved){
+    statusEl.textContent = "📌 يوجد بيانات محفوظة لهذا التاريخ — تم تحميلها تلقائيًا";
+    statusEl.className = "storage-status has-data";
+  } else {
+    statusEl.textContent = "لا توجد بيانات محفوظة لهذا التاريخ بعد";
+    statusEl.className = "storage-status";
+  }
+}
+
+function loadDateFromStorage(dateVal, {silent} = {}){
+  const saved = localStorage.getItem(storageKey(dateVal));
+  if (saved){
+    try{
+      const data = JSON.parse(saved);
+      applyFormData(data);
+    }catch(e){
+      console.error('تعذر قراءة البيانات المحفوظة', e);
+    }
+  } else if (!silent){
+    clearFormFields();
+  }
+  refreshStorageStatus();
+}
+
+document.getElementById('date-picker').addEventListener('change', () => {
+  const dateVal = document.getElementById('date-picker').value;
+  if (dateVal){
+    const d = new Date(dateVal + "T00:00:00");
+    const matchIdx = dayIdxFromJsDay(d.getDay());
+    if (matchIdx !== -1) setActiveDay(matchIdx);
+  }
+  updatePrintHeader();
+  loadDateFromStorage(dateVal);
+});
+
+document.getElementById('save-btn').addEventListener('click', () => {
+  const dateVal = document.getElementById('date-picker').value;
+  const data = collectFormData();
+  localStorage.setItem(storageKey(dateVal), JSON.stringify(data));
+  const statusEl = document.getElementById('storage-status');
+  statusEl.textContent = "✅ تم حفظ بيانات هذا اليوم";
+  statusEl.className = "storage-status just-saved";
+  setTimeout(refreshStorageStatus, 2200);
+});
+
+/* ---------- Build page ---------- */
+buildDayBar();
+buildRows();
+
+// initialize date picker to today, sync weekday, and auto-load if data exists
+(function init(){
+  const today = new Date();
+  const iso = today.toISOString().slice(0,10);
+  const datePicker = document.getElementById('date-picker');
+  datePicker.value = iso;
+  const matchIdx = dayIdxFromJsDay(today.getDay());
+  if (matchIdx !== -1) setActiveDay(matchIdx);
+  updatePrintHeader();
+  loadDateFromStorage(iso, { silent: true });
+})();
+
+/* ---------- Print ---------- */
+document.getElementById('print-btn').addEventListener('click', () => {
+  updatePrintHeader();
+  window.print();
+});
+
+/* ---------- Image export ---------- */
+document.getElementById('download-btn').addEventListener('click', () => {
+  const btn = document.getElementById('download-btn');
+  const target = document.getElementById('capture-area');
+  const printHeader = document.getElementById('print-header');
+  btn.disabled = true;
+  btn.textContent = '... جارٍ التجهيز';
+  printHeader.style.display = 'block';
+  updatePrintHeader();
+
+  const doCapture = () => {
+    html2canvas(target, {
+      scale: 2,
+      backgroundColor: '#fffdf6',
+      useCORS: true,
+      allowTaint: true,
+      letterRendering: false
+    }).then(canvas => {
+      printHeader.style.display = '';
+      btn.disabled = false;
+      btn.textContent = '⬇ تحميل الجدول كصورة';
+      const link = document.createElement('a');
+      const dayLabel = DAYS[currentDayIdx].label;
+      link.download = `سجل-الحضور-${dayLabel}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    }).catch(err => {
+      printHeader.style.display = '';
+      btn.disabled = false;
+      btn.textContent = '⬇ تحميل الجدول كصورة';
+      console.error('تعذر إنشاء الصورة', err);
+      alert('حصلت مشكلة أثناء إنشاء الصورة، جرّب زرار الطباعة بدل ذلك.');
+    });
+  };
+
+  if (document.fonts && document.fonts.ready){
+    document.fonts.ready.then(doCapture);
+  } else {
+    doCapture();
+  }
+});
+</script>
+</body>
+</html>
